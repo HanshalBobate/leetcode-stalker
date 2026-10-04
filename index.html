@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeetCode Activity Stalker</title>
+<meta name="description" content="A lightweight Python script that monitors public LeetCode activity and sends desktop notifications when something changes.">
+<style>
+:root{
+  --bg:#000;--s1:#0d0d0d;--s2:#161616;--s3:#1f1f1f;--bd:#2a2a2a;
+  --y:#ffb000;--yh:#ffc533;--tx:#fff;--mu:#9a9a9a;--dim:#5e5e5e;--ok:#3ddc97;
+  --f:Arial,"Helvetica Neue",Helvetica,sans-serif;
+  --m:Consolas,"SFMono-Regular",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:96px}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 var(--f);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+code{font-family:var(--m);background:var(--s3);padding:1px 5px;border-radius:2px;color:var(--y);font-size:12.5px}
+:focus-visible{outline:2px solid var(--y);outline-offset:2px}
+.wrap{width:min(1180px,100% - 24px);margin:0 auto}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+/* HEADER */
+header{position:sticky;top:0;z-index:50;background:#000;border-bottom:1px solid var(--bd)}
+.top{display:flex;align-items:center;gap:14px;height:52px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:900;font-size:18px;letter-spacing:-.3px;white-space:nowrap}
+.brand b{background:var(--y);color:#000;padding:2px 7px;border-radius:3px;font-size:16px}
+.search{flex:1;max-width:460px;margin-left:auto;position:relative}
+.search input{width:100%;height:34px;background:var(--s3);border:1px solid var(--bd);border-radius:3px;color:var(--tx);padding:0 12px;font:inherit;font-size:13px}
+.search input::placeholder{color:var(--dim)}
+.search input:focus{outline:none;border-color:var(--y)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 14px;border:1px solid var(--bd);background:var(--s3);color:var(--tx);font:700 13px var(--f);border-radius:3px;cursor:pointer;transition:background .12s,border-color .12s,color .12s;white-space:nowrap}
+.btn:hover{border-color:#555;background:#2a2a2a}
+.btn.pri{background:var(--y);border-color:var(--y);color:#000}
+.btn.pri:hover{background:var(--yh);border-color:var(--yh)}
+.btn:active{transform:translateY(1px)}
+.burger{display:none;width:36px;height:34px;padding:0}
+.tabs{background:var(--s1);border-top:1px solid var(--bd)}
+.tabs .wrap{display:flex;overflow-x:auto;scrollbar-width:none}
+.tabs a{padding:0 14px;height:34px;display:flex;align-items:center;font-weight:700;font-size:12.5px;color:var(--mu);border-bottom:3px solid transparent;white-space:nowrap;transition:color .12s,background .12s}
+.tabs a:hover{color:var(--tx);background:var(--s2)}
+.tabs a.on{color:var(--y);border-bottom-color:var(--y)}
+.tabs .gh{margin-left:auto}
+
+/* HERO */
+.hero{display:grid;grid-template-columns:1fr 360px;gap:12px;padding:14px 0}
+.player{background:var(--s1);border:1px solid var(--bd);border-radius:3px;padding:26px 28px;display:flex;flex-direction:column;justify-content:center;min-height:250px;border-left:4px solid var(--y)}
+.tag{display:inline-block;align-self:flex-start;background:var(--y);color:#000;font-weight:900;font-size:11px;padding:2px 7px;border-radius:2px;margin-bottom:12px}
+.player h1{margin:0 0 10px;font-size:clamp(32px,5vw,52px);line-height:1;font-weight:900;letter-spacing:-1.5px}
+.player h1 em{font-style:normal;background:var(--y);color:#000;padding:0 8px;border-radius:3px}
+.player p{margin:0 0 18px;color:var(--mu);font-size:15px;max-width:560px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.side{background:var(--s1);border:1px solid var(--bd);border-radius:3px}
+.side h3{margin:0;padding:9px 12px;font-size:13px;border-bottom:1px solid var(--bd);background:var(--s2)}
+.side ol{list-style:none;margin:0;padding:0}
+.side li a{display:flex;gap:10px;padding:9px 12px;border-bottom:1px solid var(--bd);align-items:center;transition:background .12s}
+.side li:last-child a{border-bottom:0}
+.side li a:hover{background:var(--s2)}
+.side li b{color:var(--y);font:700 12px var(--m);width:18px}
+.side li span{font-weight:700;font-size:13px}
+.side li small{margin-left:auto;color:var(--dim);font-size:11px}
+
+/* SECTIONS */
+section{margin:0 0 14px}
+.sh{display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--y);padding-bottom:6px;margin-bottom:10px}
+.sh h2{margin:0;font-size:20px;font-weight:900;letter-spacing:-.4px}
+.sh small{color:var(--mu);font-size:12px;margin-left:auto}
+.hint{display:none;color:var(--mu);padding:14px;border:1px dashed var(--bd);border-radius:3px;margin-bottom:10px}
+.hint.show{display:block}
+
+/* FEATURE TILES */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{background:var(--s1);border:1px solid var(--bd);border-radius:3px;overflow:hidden;transition:border-color .12s,transform .12s}
+.tile:hover{border-color:var(--y);transform:translateY(-1px)}
+.thumb{position:relative;aspect-ratio:16/7;background:var(--s2);display:grid;place-items:center;overflow:hidden;border-bottom:1px solid var(--bd)}
+.thumb svg{width:44px;height:44px;stroke:var(--y);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+.tile:hover .thumb svg{transform:scale(1.12)}
+.thumb i{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.85);color:var(--tx);font:700 11px var(--m);padding:1px 5px;border-radius:2px;font-style:normal}
+.meta{padding:9px 11px 11px}
+.meta h3{margin:0 0 3px;font-size:14px;font-weight:700}
+.tile:hover h3{color:var(--y)}
+.meta p{margin:0;color:var(--mu);font-size:12.5px}
+
+/* ARCH + CODE */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.box{background:var(--s1);border:1px solid var(--bd);border-radius:3px}
+.box>h3{margin:0;padding:8px 12px;font-size:12.5px;background:var(--s2);border-bottom:1px solid var(--bd)}
+.arch{margin:0;padding:14px;overflow-x:auto;font:12.5px/1.6 var(--m);color:var(--dim)}
+.arch .o{color:var(--y)}.arch .g{color:var(--ok)}.arch .m{color:var(--mu)}
+.txt{padding:12px 14px;color:var(--mu);font-size:13.5px}
+.txt p{margin:0 0 10px}.txt p:last-child{margin:0}
+
+/* STEPS */
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:10px;counter-reset:s}
+.step{background:var(--s1);border:1px solid var(--bd);border-radius:3px;padding:10px 12px 12px 48px;position:relative;counter-increment:s}
+.step::before{content:counter(s);position:absolute;left:0;top:0;bottom:0;width:36px;background:var(--y);color:#000;font:900 18px var(--f);display:grid;place-items:center}
+.step h3{margin:0 0 6px;font-size:14px}
+.step p{margin:0;color:var(--mu);font-size:13px}
+.cmd{display:flex;align-items:stretch;background:#000;border:1px solid var(--bd);border-radius:3px;overflow:hidden}
+.cmd pre{margin:0;flex:1;padding:8px 10px;overflow-x:auto;font:12.5px var(--m);color:#e8e8e8}
+.cmd pre::before{content:"$ ";color:var(--y)}
+.cmd button{border:0;border-left:1px solid var(--bd);background:var(--s3);color:var(--mu);font:700 11px var(--f);padding:0 11px;cursor:pointer;transition:background .12s,color .12s}
+.cmd button:hover{background:var(--y);color:#000}
+
+/* WARNING */
+.warn{background:var(--s1);border:1px solid var(--bd);border-left:4px solid var(--y);border-radius:3px;padding:12px 14px;color:var(--mu);font-size:13.5px}
+.warn strong{color:var(--tx)}
+.warn p{margin:0 0 9px}.warn p:last-child{margin:0}
+
+/* FOOTER */
+footer{background:var(--s1);border-top:1px solid var(--bd);margin-top:20px;padding:18px 0;color:var(--mu);font-size:12px}
+footer .wrap{display:flex;justify-content:space-between;gap:16px}
+footer a{color:var(--tx);font-weight:700}footer a:hover{color:var(--y)}
+
+/* RESPONSIVE */
+@media(max-width:960px){
+  .hero{grid-template-columns:1fr}
+  .grid{grid-template-columns:repeat(2,1fr)}
+  .two,.steps{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .top{gap:8px}
+  .brand span{display:none}
+  .top .btn.pri{display:none}
+  .burger{display:inline-flex}
+  .tabs{display:none}
+  .tabs.open{display:block}
+  .tabs.open .wrap{flex-direction:column;width:100%}
+  .tabs.open a{border-bottom:1px solid var(--bd);height:40px;border-left:3px solid transparent}
+  .tabs.open a.on{border-left-color:var(--y);border-bottom-color:var(--bd)}
+  .tabs .gh{margin-left:0}
+  .player{padding:18px 16px;min-height:0}
+  .player p{font-size:14px}
+  .row .btn{flex:1}
+  .grid{grid-template-columns:1fr 1fr;gap:8px}
+  .thumb{aspect-ratio:16/8}.thumb svg{width:34px;height:34px}
+  .meta p{font-size:12px}
+  .sh h2{font-size:17px}.sh small{display:none}
+  footer .wrap{flex-direction:column;gap:8px}
+}
+@media(max-width:400px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap top">
+    <a class="brand" href="#"><b>LC</b><span>LeetCode Activity Stalker</span></a>
+    <div class="search">
+      <input id="q" type="search" placeholder="Search features and setup steps" aria-label="Search features and setup steps" autocomplete="off">
+    </div>
+    <a class="btn pri" href="https://github.com/HanshalBobate/leetcode-stalker" target="_blank" rel="noopener">GitHub ↗</a>
+    <button class="btn burger" id="burger" aria-label="Toggle menu" aria-expanded="false" aria-controls="nav">☰</button>
+  </div>
+  <nav class="tabs" id="nav" aria-label="Page sections">
+    <div class="wrap">
+      <a href="#features" class="on">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#setup">Setup</a>
+      <a href="#state">Detection</a>
+      <a href="#limits">Limits</a>
+      <a class="gh" href="https://github.com/HanshalBobate/leetcode-stalker" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+  </nav>
+</header>
+
+<main class="wrap">
+
+<div class="hero">
+  <div class="player">
+    <span class="tag">Lightweight Python Monitor</span>
+    <h1>Know when they <em>solve.</em></h1>
+    <p>A tiny Python utility that monitors publicly available LeetCode activity and sends desktop notifications when something changes.</p>
+    <div class="row">
+      <a class="btn pri" href="https://github.com/HanshalBobate/leetcode-stalker" target="_blank" rel="noopener">View on GitHub ↗</a>
+      <a class="btn" href="#setup">Run it yourself</a>
+    </div>
+  </div>
+  <aside class="side" aria-label="Jump to">
+    <h3>Jump to</h3>
+    <ol>
+      <li><a href="#features"><b>1</b><span>What it does</span><small>6 items</small></a></li>
+      <li><a href="#how"><b>2</b><span>How it works</span><small>diagram</small></a></li>
+      <li><a href="#setup"><b>3</b><span>Installation</span><small>4 steps</small></a></li>
+      <li><a href="#state"><b>4</b><span>How detection works</span><small>state file</small></a></li>
+      <li><a href="#limits"><b>5</b><span>Know the limits</span><small>read first</small></a></li>
+      <li><a href="#project"><b>6</b><span>Built to be hacked on</span><small>open source</small></a></li>
+    </ol>
+  </aside>
+</div>
+
+<div class="hint" id="none">No features or steps match that search.</div>
+
+<section id="features">
+  <div class="sh"><h2>Small script. Zero browser circus.</h2><small>What it does</small></div>
+  <div class="grid">
+    <article class="tile" data-s="new submissions accepted public profile">
+      <div class="thumb"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h9"/></svg><i>01</i></div>
+      <div class="meta"><h3>New submissions</h3><p>Detects newly visible accepted submissions on the monitored public profile.</p></div>
+    </article>
+    <article class="tile" data-s="progress changes easy medium hard solved counts">
+      <div class="thumb"><svg viewBox="0 0 24 24"><path d="M3 20h18"/><rect x="5" y="12" width="3" height="8"/><rect x="10.5" y="8" width="3" height="12"/><rect x="16" y="4" width="3" height="16"/></svg><i>02</i></div>
+      <div class="meta"><h3>Progress changes</h3><p>Detects changes in Easy, Medium and Hard solved counts.</p></div>
+    </article>
+    <article class="tile" data-s="ranking changes public leetcode ranking">
+      <div class="thumb"><svg viewBox="0 0 24 24"><path d="M6 4h12v5a6 6 0 01-12 0z"/><path d="M6 6H3v1a4 4 0 004 4M18 6h3v1a4 4 0 01-4 4"/><path d="M12 15v4M8 21h8"/></svg><i>03</i></div>
+      <div class="meta"><h3>Ranking changes</h3><p>Detects changes to the user's public LeetCode ranking.</p></div>
+    </article>
+    <article class="tile" data-s="desktop notifications windows toast native">
+      <div class="thumb"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><i>04</i></div>
+      <div class="meta"><h3>Desktop notifications</h3><p>Sends native Windows notifications when activity is detected.</p></div>
+    </article>
+    <article class="tile" data-s="tiny memory footprint requests json state file no browser automation">
+      <div class="thumb"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></svg><i>05</i></div>
+      <div class="meta"><h3>Tiny memory footprint</h3><p>Uses requests and a small JSON state file. No browser automation required.</p></div>
+    </article>
+    <article class="tile" data-s="no account required credentials public profile information">
+      <div class="thumb"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/><path d="M3 3l18 18"/></svg><i>06</i></div>
+      <div class="meta"><h3>No account required</h3><p>The script monitors publicly accessible profile information without storing credentials.</p></div>
+    </article>
+  </div>
+</section>
+
+<section id="how">
+  <div class="sh"><h2>How it works</h2><small>Architecture</small></div>
+  <div class="two">
+    <div class="box">
+      <h3>Request flow</h3>
+<pre class="arch" aria-label="Architecture diagram"><span class="m">┌──────────────────────┐</span>
+<span class="o">│   Public LeetCode    │</span>
+<span class="m">│       Profile        │</span>
+<span class="m">└──────────┬───────────┘</span>
+           │
+           │ GraphQL request
+           ▼
+<span class="m">┌──────────────────────┐</span>
+<span class="o">│      Python          │</span>
+<span class="m">│      Watcher         │</span>
+<span class="m">└──────────┬───────────┘</span>
+           │
+           ├───────────────┐
+           │               │
+           ▼               ▼
+<span class="m">┌──────────────┐</span>   <span class="m">┌────────────────┐</span>
+<span class="g">│ State JSON   │</span>   <span class="g">│ Windows Toast  │</span>
+<span class="m">│ Comparison   │</span>   <span class="m">│ Notification   │</span>
+<span class="m">└──────────────┘</span>   <span class="m">└────────────────┘</span></pre>
+    </div>
+    <div class="box" id="state">
+      <h3>How detection works</h3>
+      <div class="txt">
+        <p>The first execution creates a small <code>leetcode_state.json</code> file containing a snapshot of the publicly visible data. Every subsequent check compares the new snapshot against that previous state.</p>
+        <p>The script therefore doesn't need a database or a large in-memory history. It remembers only what is necessary to detect changes.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="setup">
+  <div class="sh"><h2>Up and running in under a minute.</h2><small>Installation</small></div>
+  <div class="steps">
+    <div class="step" data-s="clone the repository git">
+      <h3>Clone the repository</h3>
+      <div class="cmd"><pre>git clone https://github.com/HanshalBobate/leetcode-stalker.git</pre><button type="button">Copy</button></div>
+    </div>
+    <div class="step" data-s="install dependencies pip requests winotify">
+      <h3>Install dependencies</h3>
+      <div class="cmd"><pre>pip install requests winotify</pre><button type="button">Copy</button></div>
+    </div>
+    <div class="step" data-s="configure the username stalker.py">
+      <h3>Configure the username</h3>
+      <p>Open <code>stalker.py</code> and change <code>USERNAME</code> to the public LeetCode username you want to monitor.</p>
+    </div>
+    <div class="step" data-s="start the watcher python">
+      <h3>Start the watcher</h3>
+      <div class="cmd"><pre>python stalker.py</pre><button type="button">Copy</button></div>
+    </div>
+  </div>
+</section>
+
+<section id="limits">
+  <div class="sh"><h2>Know the limits.</h2><small>Important</small></div>
+  <div class="warn">
+    <p><strong>This monitors public information only.</strong></p>
+    <p>The project does not log into another person's account, bypass authentication, access private submissions, or attempt to circumvent LeetCode protections.</p>
+    <p>The recent-submission information available through the public interface is limited, so this should be treated as a lightweight activity monitor rather than a complete historical archive.</p>
+    <p>Use a reasonable polling interval. The default is <strong>60 seconds</strong>.</p>
+  </div>
+</section>
+
+<section id="project">
+  <div class="sh"><h2>Built to be hacked on.</h2><small>Open source</small></div>
+  <div class="box">
+    <div class="txt" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+      <p style="max-width:700px">Want Telegram alerts? Discord webhooks? Multiple users? SQLite history? A tray application? Better event detection? Fork it and go feral.</p>
+      <a class="btn pri" href="https://github.com/HanshalBobate/leetcode-stalker" target="_blank" rel="noopener">Open repository ↗</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div><strong style="color:#fff">LeetCode Activity Stalker</strong></div>
+    <div>Unofficial project · <a href="https://leetcode.com/" target="_blank" rel="noopener">LeetCode</a> is a trademark of its respective owner.</div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // Mobile menu
+  var b=document.getElementById('burger'),n=document.getElementById('nav');
+  b.addEventListener('click',function(){var o=n.classList.toggle('open');b.setAttribute('aria-expanded',o)});
+  n.addEventListener('click',function(e){if(e.target.tagName==='A')n.classList.remove('open')});
+
+  // Active tab on scroll
+  var links=[].slice.call(n.querySelectorAll('a[href^="#"]'));
+  var map=links.map(function(a){return[a,document.querySelector(a.getAttribute('href'))]}).filter(function(p){return p[1]});
+  function spy(){
+    var y=window.scrollY+130,cur=map[0];
+    map.forEach(function(p){if(p[1].offsetTop<=y)cur=p});
+    links.forEach(function(a){a.classList.toggle('on',a===cur[0])});
+  }
+  window.addEventListener('scroll',spy,{passive:true});spy();
+
+  // Search: filters feature tiles and setup steps
+  var q=document.getElementById('q'),items=[].slice.call(document.querySelectorAll('[data-s]')),none=document.getElementById('none');
+  q.addEventListener('input',function(){
+    var v=q.value.trim().toLowerCase(),hits=0;
+    items.forEach(function(el){
+      var t=(el.textContent+' '+el.dataset.s).toLowerCase(),m=!v||t.indexOf(v)>-1;
+      el.style.display=m?'':'none';if(m)hits++;
+    });
+    none.classList.toggle('show',!!v&&!hits);
+  });
+
+  // Copy buttons
+  [].forEach.call(document.querySelectorAll('.cmd button'),function(btn){
+    btn.addEventListener('click',function(){
+      var t=btn.previousElementSibling.textContent;
+      function done(){btn.textContent='Copied';setTimeout(function(){btn.textContent='Copy'},1200)}
+      if(navigator.clipboard)navigator.clipboard.writeText(t).then(done,function(){});else done();
+    });
+  });
+})();
+</script>
+</body>
+</html>
